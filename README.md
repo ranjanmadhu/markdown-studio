@@ -23,6 +23,10 @@ Markdown Studio is a browser-based markdown editor and previewer built as a sing
 - syntax-highlighted code blocks
 - built with CDN dependencies only (no build step required)
 
+## Preview
+
+![Markdown Studio screenshot](./Screenshot%202026-06-10%20113337.png)
+
 ## How to run
 
 1. Open `index.html` in your browser.
@@ -41,4 +45,4 @@ Markdown Studio is a browser-based markdown editor and previewer built as a sing
 
 ## License
 
-This project does not include a license file yet. Add one if you want to publish or share the code.
+This project is licensed under the MIT License. See the included `LICENSE` file for details.
