@@ -19,6 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked-katex-extension/lib/index.umd.js"></script>
     <!-- PrismJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" id="prism-light" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" id="prism-dark" disabled />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
@@ -70,9 +71,14 @@
             max-width: none !important;
             padding-left: 2rem !important;
             padding-right: 2rem !important;
+            padding-top: 1.5rem !important;
+        }
+        
+        .markdown-body > *:first-child {
+            margin-top: 0 !important;
         }
 
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;500;600&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap');
         
         body { 
             font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; 
@@ -80,7 +86,8 @@
         
         /* Markdown Typography overrides */
         .markdown-body {
-            font-size: 16px;
+            font-size: var(--preview-font-size, 16px);
+            font-family: var(--preview-font-family, 'Inter', ui-sans-serif, system-ui, sans-serif);
             line-height: 1.6;
             color: var(--text-main);
         }
@@ -91,7 +98,7 @@
             margin-bottom: 0.5em;
             line-height: 1.3;
         }
-        .markdown-body h1 { font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif; font-size: 2.25em; padding-bottom: 0.3em; border-bottom: 1px solid var(--border-main); }
+        .markdown-body h1 { font-family: var(--preview-font-family-h1, ui-serif, Georgia, Cambria, "Times New Roman", Times, serif); font-size: 2.25em; padding-bottom: 0.3em; border-bottom: 1px solid var(--border-main); }
         .markdown-body h2 { font-size: 1.75em; padding-bottom: 0.3em; border-bottom: 1px solid var(--border-main); color: var(--editor-text); }
         .markdown-body h3 { font-size: 1.5em; color: var(--editor-text); }
         .markdown-body h4 { font-size: 1.25em; color: var(--editor-text); }
@@ -180,7 +187,7 @@
         }
     </style>
 </head>
-<body class="bg-[var(--bg-app)] h-screen w-full flex flex-col overflow-hidden text-[var(--text-main)]">
+<body class="bg-[var(--bg-app)] h-screen w-full flex flex-col overflow-hidden text-[var(--text-main)] viewer-full-width">
 
     <!-- Application Header -->
     <header class="bg-[var(--bg-white)] border-b border-[var(--border-main)] px-4 md:px-6 py-3 flex items-center justify-between shrink-0 z-10">
@@ -221,6 +228,10 @@
                 <svg class="w-4 h-4 text-[var(--bg-btn)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 14v4a2 2 0 002 2h4m10-4v4a2 2 0 01-2 2h-4m2-14h-4m0 0a2 2 0 00-2-2H6a2 2 0 00-2 2v4"></path></svg>
                 <span class="hidden sm:inline">Focus</span>
             </button>
+            <button id="export-pdf" class="px-3 md:px-4 py-1.5 bg-[var(--bg-app)] border border-[var(--border-main)] text-[var(--text-main)] rounded hover:bg-[var(--bg-hover)] text-xs font-medium transition-colors flex items-center gap-2" title="Export to PDF">
+                <svg class="w-4 h-4 text-[var(--bg-btn)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <span class="hidden sm:inline">Export PDF</span>
+            </button>
         </div>
     </header>
 
@@ -248,6 +259,16 @@
                         <li class="px-3 py-2 rounded text-[11px] font-medium text-[var(--text-muted)] italic text-center mt-4">No folder opened.<br>Click above to load a folder.</li>
                     </ul>
                 </div>
+                
+                <div class="flex-1 flex flex-col border-t border-[var(--border-main)] pt-4 mt-2 overflow-hidden hidden" id="toc-container">
+                    <div class="flex items-center justify-between mb-2 shrink-0">
+                        <div class="text-[10px] uppercase tracking-widest text-[var(--text-muted)] font-bold">Contents</div>
+                    </div>
+                    <div class="flex-1 overflow-y-auto pr-1 -mr-1" id="toc-scroll">
+                        <ul id="toc-tree" class="space-y-1 text-[11px] text-[var(--text-main)]">
+                        </ul>
+                    </div>
+                </div>
               </div>
             </div>
         </aside>
@@ -264,6 +285,33 @@
                     <button id="download-btn" class="hidden px-2 py-1 bg-[var(--bg-btn)] text-white rounded text-[10px] items-center gap-1 hover:bg-[var(--bg-btn-hover)] transition-colors"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Download</button>
                 </div>
             </div>
+            
+            <!-- Formatting Toolbar -->
+            <div class="px-2 py-1 bg-[var(--bg-app)] border-b border-[var(--border-main)] flex items-center justify-between shrink-0 overflow-x-auto">
+                <div class="flex items-center gap-1">
+                    <button class="format-btn p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] rounded transition-colors" data-format="bold" title="Bold (Ctrl+B)">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path></svg>
+                    </button>
+                    <button class="format-btn p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] rounded transition-colors" data-format="italic" title="Italic (Ctrl+I)">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"></line><line x1="14" y1="20" x2="5" y2="20"></line><line x1="15" y1="4" x2="9" y2="20"></line></svg>
+                    </button>
+                    <div class="w-px h-4 bg-[var(--border-main)] mx-1"></div>
+                    <button class="format-btn p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] rounded transition-colors" data-format="ul" title="Bulleted List">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                    </button>
+                    <button class="format-btn p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] rounded transition-colors" data-format="ol" title="Numbered List">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"></line><line x1="10" y1="12" x2="21" y2="12"></line><line x1="10" y1="18" x2="21" y2="18"></line><path d="M4 6h1v4"></path><path d="M4 10h2"></path><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path></svg>
+                    </button>
+                    <div class="w-px h-4 bg-[var(--border-main)] mx-1"></div>
+                    <button class="format-btn p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] rounded transition-colors" data-format="link" title="Link (Ctrl+K)">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                    </button>
+                </div>
+                <button id="toggle-wrap-btn" class="p-1.5 text-[var(--bg-btn)] bg-[var(--bg-panel)] shadow-sm rounded transition-colors" title="Toggle Word Wrap">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><path d="M3 12h15a3 3 0 1 1 0 6h-4"></path><polyline points="16 16 14 18 16 20"></polyline><line x1="3" y1="18" x2="7" y2="18"></line></svg>
+                </button>
+            </div>
+            
             <textarea id="editor" class="editor-textarea flex-1 w-full p-6 resize-none outline-none text-[13px] leading-relaxed text-[var(--editor-text)] bg-[var(--bg-panel)]" spellcheck="false" placeholder="Type your markdown here..."># Welcome to Markdown Studio :rocket:
 
 This is a real-time **markdown** preview environment with extended GFM support.
@@ -280,6 +328,7 @@ KaTeX renders mathematical formatting beautifully.
 **Inline math**: Euler's identity is $e^{i\pi} + 1 = 0$.
 
 **Block math**:
+
 $$
 f(x) = \int_{-\infty}^\infty\hat f(\xi)\,e^{2 \pi i \xi x}\,d\xi
 $$
@@ -295,6 +344,9 @@ graph TD;
 ```</textarea>
         </div>
 
+        <!-- Resizer -->
+        <div id="resizer" class="resizer shrink-0 bg-[var(--border-main)] hover:bg-[var(--bg-btn)] active:bg-[var(--bg-btn)] transition-colors z-10 cursor-row-resize md:cursor-col-resize h-1 md:w-1 md:h-full hidden"></div>
+
         <!-- Preview Column -->
         <div id="preview-column" class="flex-1 flex flex-col bg-[var(--bg-white)] min-h-[50%] md:min-h-0 relative z-0">
             <div class="px-4 py-1.5 bg-[var(--bg-header)] border-b border-[var(--border-main)] flex justify-between items-center text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest shrink-0 relative z-10">
@@ -303,6 +355,23 @@ graph TD;
                     Live Preview
                 </div>
                 <div class="flex items-center gap-1 normal-case tracking-normal font-normal">
+                    <select id="preview-font" class="hidden sm:block bg-[var(--bg-white)] border border-[var(--border-main)] rounded text-[var(--text-main)] px-1 py-0.5 outline-none focus:border-[var(--bg-btn)] transition-all max-w-[80px] sm:max-w-[100px] text-[10px]">
+                        <option value="font-inter" style="font-family: 'Inter', sans-serif;" selected>Inter</option>
+                        <option value="font-sans" style="font-family: ui-sans-serif, system-ui, sans-serif;">System Sans</option>
+                        <option value="font-serif" style="font-family: ui-serif, Georgia, serif;">System Serif</option>
+                        <option value="font-mono" style="font-family: 'JetBrains Mono', monospace;">JetBrains Mono</option>
+                        <option value="font-roboto" style="font-family: 'Roboto', sans-serif;">Roboto</option>
+                        <option value="font-opensans" style="font-family: 'Open Sans', sans-serif;">Open Sans</option>
+                        <option value="font-lora" style="font-family: 'Lora', serif;">Lora</option>
+                        <option value="font-merriweather" style="font-family: 'Merriweather', serif;">Merriweather</option>
+                        <option value="font-georgia" style="font-family: Georgia, serif;">Georgia</option>
+                        <option value="font-arial" style="font-family: Arial, sans-serif;">Arial</option>
+                    </select>
+                    <div class="hidden sm:flex items-center gap-1.5 px-1">
+                        <span class="text-[9px] text-[var(--text-muted)] font-medium font-sans">A</span>
+                        <input type="range" id="preview-size" min="12" max="24" value="16" class="w-16 h-1 bg-[var(--border-main)] rounded-lg appearance-none cursor-pointer accent-[var(--text-muted)]" title="Text Size">
+                        <span class="text-[12px] text-[var(--text-main)] font-medium font-sans">A</span>
+                    </div>
                     <div class="relative flex items-center">
                         <svg class="w-3 h-3 absolute left-1.5 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         <input type="text" id="preview-search" placeholder="Find in preview..." class="w-24 sm:w-36 bg-[var(--bg-white)] border border-[var(--border-main)] rounded-l text-[var(--text-main)] pl-5 pr-2 py-0.5 outline-none focus:border-[var(--bg-btn)] placeholder:text-[var(--text-muted)] transition-all" />
@@ -355,11 +424,15 @@ graph TD;
             const toggleSidebarBtn = document.getElementById('toggle-sidebar');
             const toggleThemeBtn = document.getElementById('toggle-theme');
             const toggleFocusBtn = document.getElementById('toggle-focus');
+            const exportPdfBtn = document.getElementById('export-pdf');
             const exitFocusBtn = document.getElementById('exit-focus-mode');
             const wordCountEl = document.getElementById('word-count');
             const charCountEl = document.getElementById('char-count');
             const readTimeEl = document.getElementById('read-time');
             const expandViewerBtn = document.getElementById('expand-viewer-btn');
+            
+            const previewFontSelect = document.getElementById('preview-font');
+            const previewSizeSelect = document.getElementById('preview-size');
 
             const editorColumn = document.getElementById('editor-column');
             const sidebarColumn = document.getElementById('sidebar-column');
@@ -453,16 +526,138 @@ graph TD;
 
             // Focus Mode Toggle
             toggleFocusBtn.addEventListener('click', () => {
+                // Determine the visually centered element before layout changes
+                const previewContainer = document.getElementById('preview-container');
+                const previewRect = previewContainer.getBoundingClientRect();
+                const centerY = previewRect.top + (previewRect.height / 2);
+                
+                let targetEl = null;
+                let minDiff = Infinity;
+                const elements = document.getElementById('preview').children;
+
+                for (let i = 0; i < elements.length; i++) {
+                    const el = elements[i];
+                    const rect = el.getBoundingClientRect();
+                    const elCenter = rect.top + (rect.height / 2);
+                    const diff = Math.abs(elCenter - centerY);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        targetEl = el;
+                    }
+                }
+
                 document.body.classList.add('focus-mode');
                 exitFocusBtn.classList.remove('hidden');
                 exitFocusBtn.classList.add('flex');
+
+                if (targetEl) {
+                    setTimeout(() => {
+                        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 50);
+                }
+            });
+            
+            // Font Customization
+            previewFontSelect.addEventListener('change', (e) => {
+                const element = document.getElementById('preview');
+                const val = e.target.value;
+                if (val === 'font-inter') {
+                    element.style.setProperty('--preview-font-family', "'Inter', ui-sans-serif, system-ui, sans-serif");
+                    element.style.setProperty('--preview-font-family-h1', "ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif");
+                } else if (val === 'font-sans') {
+                    element.style.setProperty('--preview-font-family', "ui-sans-serif, system-ui, sans-serif");
+                    element.style.setProperty('--preview-font-family-h1', "ui-sans-serif, system-ui, sans-serif");
+                } else if (val === 'font-serif') {
+                    element.style.setProperty('--preview-font-family', "ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif");
+                    element.style.setProperty('--preview-font-family-h1', "ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif");
+                } else if (val === 'font-mono') {
+                    element.style.setProperty('--preview-font-family', "'JetBrains Mono', ui-monospace, SFMono-Regular, monospace");
+                    element.style.setProperty('--preview-font-family-h1', "'JetBrains Mono', ui-monospace, SFMono-Regular, monospace");
+                } else if (val === 'font-roboto') {
+                    element.style.setProperty('--preview-font-family', "'Roboto', sans-serif");
+                    element.style.setProperty('--preview-font-family-h1', "'Roboto', sans-serif");
+                } else if (val === 'font-opensans') {
+                    element.style.setProperty('--preview-font-family', "'Open Sans', sans-serif");
+                    element.style.setProperty('--preview-font-family-h1', "'Open Sans', sans-serif");
+                } else if (val === 'font-lora') {
+                    element.style.setProperty('--preview-font-family', "'Lora', serif");
+                    element.style.setProperty('--preview-font-family-h1', "'Lora', serif");
+                } else if (val === 'font-merriweather') {
+                    element.style.setProperty('--preview-font-family', "'Merriweather', serif");
+                    element.style.setProperty('--preview-font-family-h1', "'Merriweather', serif");
+                } else if (val === 'font-georgia') {
+                    element.style.setProperty('--preview-font-family', "Georgia, serif");
+                    element.style.setProperty('--preview-font-family-h1', "Georgia, serif");
+                } else if (val === 'font-arial') {
+                    element.style.setProperty('--preview-font-family', "Arial, sans-serif");
+                    element.style.setProperty('--preview-font-family-h1', "Arial, sans-serif");
+                }
+            });
+
+            previewSizeSelect.addEventListener('input', (e) => {
+                const element = document.getElementById('preview');
+                const val = e.target.value;
+                element.style.setProperty('--preview-font-size', val + 'px');
+            });
+
+            // Export to PDF
+            exportPdfBtn.addEventListener('click', async () => {
+                const element = document.getElementById('preview');
+                const title = document.getElementById('editor-title').innerText || 'markdown-export';
+                const filename = (activeFilePath ? activeFilePath.split('/').pop().replace(/\.md$/, '') : 'document');
+                const opt = {
+                    margin:       [0.5, 0.5],
+                    filename:     `${filename}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] },
+                    html2canvas:  { scale: 2, useCORS: true, logging: false },
+                    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+                };
+                
+                const originalPadding = element.style.padding;
+                const originalClasses = element.className;
+                element.classList.remove('p-6', 'md:p-12', 'min-h-full');
+                element.style.padding = '0';
+                
+                try {
+                    await html2pdf().set(opt).from(element).save();
+                } finally {
+                    element.className = originalClasses;
+                    element.style.padding = originalPadding;
+                }
             });
 
             // Exit Focus Mode
             exitFocusBtn.addEventListener('click', () => {
+                // Determine the visually centered element before layout changes
+                const previewContainer = document.getElementById('preview-container');
+                const previewRect = previewContainer.getBoundingClientRect();
+                const centerY = previewRect.top + (previewRect.height / 2);
+                
+                let targetEl = null;
+                let minDiff = Infinity;
+                const elements = document.getElementById('preview').children;
+
+                for (let i = 0; i < elements.length; i++) {
+                    const el = elements[i];
+                    const rect = el.getBoundingClientRect();
+                    const elCenter = rect.top + (rect.height / 2);
+                    const diff = Math.abs(elCenter - centerY);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        targetEl = el;
+                    }
+                }
+
                 document.body.classList.remove('focus-mode');
                 exitFocusBtn.classList.add('hidden');
                 exitFocusBtn.classList.remove('flex');
+                
+                if (targetEl) {
+                    setTimeout(() => {
+                        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 50);
+                }
             });
 
             // Update Status Bar Stats
@@ -491,10 +686,158 @@ graph TD;
                     }
                 }
             });
+            
+            // Formatting Toolbar functionality
+            const formatButtons = document.querySelectorAll('.format-btn');
+            formatButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const format = btn.getAttribute('data-format');
+                    applyFormatting(format);
+                });
+            });
+
+            function applyFormatting(format) {
+                const start = editor.selectionStart;
+                const end = editor.selectionEnd;
+                const text = editor.value;
+                const selectedText = text.substring(start, end);
+                let newText = '';
+                let newStart = start;
+                let newEnd = end;
+
+                switch (format) {
+                    case 'bold':
+                        newText = `**${selectedText}**`;
+                        newStart = start + 2;
+                        newEnd = end + 2;
+                        break;
+                    case 'italic':
+                        newText = `_${selectedText}_`;
+                        newStart = start + 1;
+                        newEnd = end + 1;
+                        break;
+                    case 'ul':
+                        newText = `- ${selectedText}`;
+                        newStart = start + 2;
+                        newEnd = end !== start ? start + 2 + selectedText.length : start + 2;
+                        break;
+                    case 'ol':
+                        newText = `1. ${selectedText}`;
+                        newStart = start + 3;
+                        newEnd = end !== start ? start + 3 + selectedText.length : start + 3;
+                        break;
+                    case 'link':
+                        newText = `[${selectedText}](url)`;
+                        newStart = start + 1;
+                        newEnd = end + 1;
+                        break;
+                }
+
+                editor.value = text.substring(0, start) + newText + text.substring(end);
+                editor.focus();
+                
+                if (selectedText.length === 0) {
+                    if (format === 'bold') newEnd = newStart = start + 2;
+                    else if (format === 'italic') newEnd = newStart = start + 1;
+                    else if (format === 'link') {
+                        newStart = start + 3;
+                        newEnd = start + 6;
+                    }
+                } else if (format === 'link') {
+                    newStart = start + selectedText.length + 3;
+                    newEnd = newStart + 3;
+                }
+                editor.setSelectionRange(newStart, newEnd);
+                
+                // Trigger input event to update everything automatically
+                const event = new Event('input', { bubbles: true });
+                editor.dispatchEvent(event);
+            }
+            
+            // Word wrap functionality
+            const toggleWrapBtn = document.getElementById('toggle-wrap-btn');
+            let isWordWrap = true;
+
+            toggleWrapBtn.addEventListener('click', () => {
+                isWordWrap = !isWordWrap;
+                if (isWordWrap) {
+                    editor.removeAttribute('wrap');
+                    editor.classList.remove('whitespace-pre', 'overflow-x-auto');
+                    toggleWrapBtn.classList.add('text-[var(--bg-btn)]', 'bg-[var(--bg-panel)]', 'shadow-sm');
+                    toggleWrapBtn.classList.remove('text-[var(--text-muted)]');
+                } else {
+                    editor.setAttribute('wrap', 'off');
+                    editor.classList.add('whitespace-pre', 'overflow-x-auto');
+                    toggleWrapBtn.classList.remove('text-[var(--bg-btn)]', 'bg-[var(--bg-panel)]', 'shadow-sm');
+                    toggleWrapBtn.classList.add('text-[var(--text-muted)]');
+                }
+            });
 
             // Toggle Editor Visibility
             toggleEditorBtn.addEventListener('click', () => {
                 editorColumn.classList.toggle('hidden');
+                document.getElementById('resizer').classList.toggle('hidden');
+            });
+
+            // Resizer Logic
+            const resizer = document.getElementById('resizer');
+            let isResizing = false;
+            let currentResizingMode = window.innerWidth >= 768 ? 'horizontal' : 'vertical';
+
+            // Reset inline styles on breakpoint cross
+            window.addEventListener('resize', () => {
+                const newMode = window.innerWidth >= 768 ? 'horizontal' : 'vertical';
+                if (newMode !== currentResizingMode) {
+                    currentResizingMode = newMode;
+                    editorColumn.style.flex = '';
+                    editorColumn.style.width = '';
+                    editorColumn.style.height = '';
+                }
+            });
+
+            resizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                document.body.style.cursor = window.innerWidth >= 768 ? 'col-resize' : 'row-resize';
+                document.body.style.userSelect = 'none';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                const editorRect = editorColumn.getBoundingClientRect();
+                const parentRect = editorColumn.parentElement.getBoundingClientRect();
+
+                if (window.innerWidth >= 768) {
+                    // Desktop (horizontal split)
+                    const newWidth = e.clientX - editorRect.left;
+                    const maxAllowedWidth = parentRect.width - (editorRect.left - parentRect.left) - 150; // Keep at least 150px for preview
+                    if (newWidth > 150 && newWidth < maxAllowedWidth) {
+                        editorColumn.style.flex = 'none';
+                        editorColumn.style.width = newWidth + 'px';
+                    }
+                } else {
+                    // Mobile (vertical split)
+                    const newHeight = e.clientY - editorRect.top;
+                    const maxAllowedHeight = parentRect.height - (editorRect.top - parentRect.top) - 100; // Keep at least 100px for preview
+                    if (newHeight > 100 && newHeight < maxAllowedHeight) {
+                        editorColumn.style.flex = 'none';
+                        editorColumn.style.height = newHeight + 'px';
+                    }
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                }
+            });
+
+            // Double click to reset
+            resizer.addEventListener('dblclick', () => {
+                editorColumn.style.flex = '';
+                editorColumn.style.width = '';
+                editorColumn.style.height = '';
             });
 
             // Expand Viewer mode
@@ -509,14 +852,47 @@ graph TD;
 
             // Configure marked KaTeX
             if (window.markedKatex) {
-                marked.use(window.markedKatex({ throwOnError: false }));
+                marked.use(window.markedKatex({ throwOnError: false, nonStandard: true }));
             }
             
-            // Configure marked Checkboxes
+            // Path resolution utility
+            function resolveRelativePath(basePath, relativePath) {
+                if (/^(https?|data):/i.test(relativePath)) return relativePath; // Absolute URL
+                
+                const baseParts = basePath.split('/');
+                baseParts.pop(); // Remove file name
+                const relParts = relativePath.split('/');
+                
+                for (const part of relParts) {
+                    if (part === '.') continue;
+                    if (part === '..') {
+                        if (baseParts.length > 0) baseParts.pop();
+                    } else {
+                        baseParts.push(part);
+                    }
+                }
+                return baseParts.join('/');
+            }
+
+            // Configure marked Checkboxes and Images
             marked.use({
                 renderer: {
                     checkbox(checked) {
                         return `<input type="checkbox" class="task-list-item-checkbox cursor-pointer" ${checked ? 'checked' : ''}>`;
+                    },
+                    image(hrefObj, title, text) {
+                        let href = typeof hrefObj === 'object' ? hrefObj.href : hrefObj;
+                        try { href = decodeURIComponent(href); } catch(e){}
+                        const t = typeof hrefObj === 'object' ? hrefObj.title : title;
+                        const alt = typeof hrefObj === 'object' ? hrefObj.text : text;
+                        let resolvedHref = href;
+                        if (activeFilePath && href && !/^(https?|data):/i.test(href)) {
+                            const absPath = resolveRelativePath(activeFilePath, href);
+                            if (currentImageUrls.has(absPath)) {
+                                resolvedHref = currentImageUrls.get(absPath);
+                            }
+                        }
+                        return `<img src="${resolvedHref}" alt="${alt || ''}" title="${t || ''}" class="max-w-full h-auto rounded shadow-sm">`;
                     }
                 }
             });
@@ -592,7 +968,16 @@ graph TD;
 
             async function renderContent() {
                 const renderId = ++currentRenderId;
-                const text = editor.value;
+                let text = editor.value || '';
+                
+                // Normalize crlf and fix trailing spaces after $$
+                text = text.replace(/\r\n/g, '\n');
+                text = text.replace(/^(\s*\$\$)\s*$/gm, '$1');
+                
+                // Ensure block math is preceded by and followed by a blank line so it parses correctly
+                text = text.replace(/([^\n])\n(\$\$)(?=\n|$)/g, '$1\n\n$2');
+                text = text.replace(/(^\$\$)\n([^\n])/gm, '$1\n\n$2');
+                text = text.replace(/([^\n])\n(\$\$)$/gm, '$1\n\n$2');
                 
                 // Render Markdown to HTML first
                 const html = marked.parse(text, {
@@ -605,6 +990,46 @@ graph TD;
                 
                 // Inject HTML
                 preview.innerHTML = html;
+
+                // Generate TOC
+                const tocContainer = document.getElementById('toc-container');
+                const tocTree = document.getElementById('toc-tree');
+                const headings = preview.querySelectorAll('h1, h2, h3, h4, h5, h6');
+                tocTree.innerHTML = '';
+                
+                if (headings.length > 0) {
+                    tocContainer.classList.remove('hidden');
+                    headings.forEach((heading, idx) => {
+                        const id = 'heading-' + renderId + '-' + idx;
+                        heading.id = id;
+                        const level = parseInt(heading.tagName.substring(1));
+                        const li = document.createElement('li');
+                        li.className = 'py-1 hover:bg-[#D1D8C5] rounded cursor-pointer transition-colors truncate text-[var(--text-main)]';
+                        li.style.paddingLeft = (0.5 + (level - 1) * 0.75) + 'rem';
+                        li.innerText = heading.innerText;
+                        li.onclick = () => {
+                            heading.scrollIntoView({ behavior: 'smooth' });
+                        };
+                        tocTree.appendChild(li);
+                    });
+                } else {
+                    tocContainer.classList.add('hidden');
+                }
+
+                // Resolve relative paths for raw HTML images
+                if (activeFilePath) {
+                    const imgs = preview.querySelectorAll('img');
+                    imgs.forEach(img => {
+                        let originalSrc = img.getAttribute('src');
+                        if (originalSrc && !/^(https?|data|blob):/i.test(originalSrc)) {
+                            try { originalSrc = decodeURIComponent(originalSrc); } catch(e){}
+                            const absPath = resolveRelativePath(activeFilePath, originalSrc);
+                            if (currentImageUrls.has(absPath)) {
+                                img.src = currentImageUrls.get(absPath);
+                            }
+                        }
+                    });
+                }
 
                 // Highlight code blocks
                 if (window.Prism) {
@@ -632,11 +1057,35 @@ graph TD;
                     const renderPromise = mermaid.render(targetId + '-svg', code)
                         .then(({ svg }) => {
                             if (renderId === currentRenderId) {
-                                container.innerHTML = svg;
-                                const svgEl = container.querySelector('svg');
+                                // Create a temporary container to inspect the SVG
+                                const temp = document.createElement('div');
+                                temp.innerHTML = svg;
+                                const svgEl = temp.querySelector('svg');
+                                
+                                // Ensure standard explicit width/height for html2canvas compatibility
                                 if (svgEl) {
                                     svgEl.style.maxWidth = '100%';
                                     svgEl.style.height = 'auto';
+                                    const viewBox = svgEl.getAttribute('viewBox');
+                                    if (viewBox) {
+                                        const parts = viewBox.split(' ');
+                                        if (parts.length === 4) {
+                                            svgEl.setAttribute('width', parts[2]);
+                                            svgEl.setAttribute('height', parts[3]);
+                                        }
+                                    }
+                                    
+                                    const svgData = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(temp.innerHTML)));
+                                    const imgEl = document.createElement('img');
+                                    imgEl.className = 'max-w-full h-auto mt-4 mb-8 mx-auto block';
+                                    imgEl.src = svgData;
+                                    
+                                    imgEl.onload = () => {
+                                        if (renderId === currentRenderId) {
+                                            container.innerHTML = '';
+                                            container.appendChild(imgEl);
+                                        }
+                                    };
                                 }
                             }
                         })
@@ -805,6 +1254,7 @@ graph TD;
             let autoRefreshInterval = null;
             let dirHandle = null;
             let isFirstLoad = true;
+            let currentImageUrls = new Map();
 
             const idb = {
                 get(key) {
@@ -885,7 +1335,7 @@ graph TD;
                 const files = [];
                 async function traverse(currentHandle, path) {
                     for await (const entry of currentHandle.values()) {
-                        if (entry.kind === 'file' && entry.name.match(/\.(md|txt|markdown)$/i)) {
+                        if (entry.kind === 'file' && entry.name.match(/\.(md|txt|markdown|png|jpe?g|gif|svg|webp)$/i)) {
                             const fileData = await entry.getFile();
                             // Use a custom path since webkitRelativePath is read-only
                             fileData.customPath = path + entry.name;
@@ -906,8 +1356,22 @@ graph TD;
                 }
 
                 currentFiles.clear();
+                
+                // Clear old image URLs
+                currentImageUrls.forEach(url => URL.revokeObjectURL(url));
+                currentImageUrls.clear();
 
-                const mdFiles = filesArr.sort((a, b) => {
+                const mdFiles = [];
+                filesArr.forEach(file => {
+                    const path = file.customPath || file.webkitRelativePath || file.name;
+                    if (path.match(/\.(md|txt|markdown)$/i)) {
+                        mdFiles.push(file);
+                    } else if (path.match(/\.(png|jpe?g|gif|svg|webp)$/i)) {
+                        currentImageUrls.set(path, URL.createObjectURL(file));
+                    }
+                });
+
+                mdFiles.sort((a, b) => {
                     const pathA = a.customPath || a.webkitRelativePath || a.name;
                     const pathB = b.customPath || b.webkitRelativePath || b.name;
                     return pathA.localeCompare(pathB);
@@ -994,6 +1458,11 @@ graph TD;
                     }
                     if (targetFile) targetFile.click();
                     isFirstLoad = false;
+                }
+                
+                // Force a render in case images updated but the active markdown file itself didn't change
+                if (!isFirstLoad) {
+                    renderContent();
                 }
             }
 
