@@ -19,7 +19,6 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked-katex-extension/lib/index.umd.js"></script>
     <!-- PrismJS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" id="prism-light" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" id="prism-dark" disabled />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
@@ -171,7 +170,7 @@
         ::-webkit-scrollbar-thumb { background: var(--border-main); border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
         ::-webkit-scrollbar-thumb:hover { background-color: var(--text-muted); }
 
-        .editor-textarea {
+        .editor-textarea, #line-numbers {
             font-family: 'JetBrains Mono', ui-monospace, monospace;
         }
 
@@ -184,6 +183,64 @@
         mark.current-match {
             background-color: #fde047;
             outline: 2px solid #ca8a04;
+        }
+
+        /* Native Print CSS for Export PDF */
+        @media print {
+            @page {
+                margin: 0.5in;
+            }
+            header,
+            #sidebar-column,
+            #editor-column,
+            #resizer,
+            .find-widget,
+            #preview-header,
+            #drop-overlay,
+            #processing-overlay,
+            #splash-screen {
+                display: none !important;
+            }
+            
+            html, body, main, #preview-column, #preview-container, #preview {
+                height: auto !important;
+                overflow: visible !important;
+                position: static !important;
+                display: block !important;
+                width: auto !important;
+                background-color: white !important;
+                color: black !important;
+            }
+            
+            #preview-container {
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            #preview {
+                padding: 0 !important;
+                margin: 0 !important;
+                max-width: none !important;
+                box-shadow: none !important;
+            }
+            
+            .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+                page-break-after: avoid;
+            }
+            .markdown-body img {
+                page-break-inside: avoid;
+                max-width: 100% !important;
+            }
+            .markdown-body pre, .markdown-body blockquote {
+                page-break-inside: avoid;
+            }
+            .markdown-body table {
+                page-break-inside: auto;
+            }
+            .markdown-body tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
         }
     </style>
 </head>
@@ -211,7 +268,7 @@
                 <svg class="w-4 h-4 text-[var(--bg-btn)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                 Open <span class="hidden sm:inline">Folder</span>
             </button>
-            <input type="file" id="file-upload" accept=".md,.txt,.markdown" class="hidden" />
+            <input type="file" id="file-upload" accept=".md,.txt,.markdown,.zip,.7z,.rar,.tar,.gz,image/*" class="hidden" />
             <button onclick="document.getElementById('file-upload').click()" class="px-3 md:px-4 py-1.5 bg-[var(--bg-app)] border border-[var(--border-main)] text-[var(--text-main)] rounded hover:bg-[var(--bg-hover)] text-xs font-medium transition-colors flex items-center gap-2" title="Upload File">
                 <svg class="w-4 h-4 text-[var(--bg-btn)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                 Upload <span class="hidden sm:inline">File</span>
@@ -236,6 +293,28 @@
     </header>
 
     <!-- Main Workspace -->
+    <div id="drop-overlay" class="fixed inset-0 bg-[var(--bg-btn)]/80 z-[100] hidden items-center justify-center backdrop-blur-sm pointer-events-none transition-opacity opacity-0">
+        <div class="bg-[var(--bg-white)] p-8 rounded-xl shadow-2xl flex flex-col items-center gap-4">
+            <svg class="w-12 h-12 text-[var(--bg-btn)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            <div class="text-center">
+                <h3 class="text-lg font-semibold text-[var(--text-main)] mb-1">Drop files or folders here</h3>
+                <p class="text-[13px] text-[var(--text-muted)]">Supports .md, .txt, images, and archives (.zip, .7z, etc)</p>
+            </div>
+        </div>
+    </div>
+    
+    <div id="processing-overlay" class="fixed inset-0 bg-[var(--bg-btn)]/80 z-[110] hidden items-center justify-center backdrop-blur-sm pointer-events-none transition-opacity opacity-0">
+        <div class="bg-[var(--bg-white)] p-8 rounded-xl shadow-2xl flex flex-col items-center gap-4">
+            <svg class="w-10 h-10 text-[var(--bg-btn)] animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <div class="text-center">
+                <h3 class="text-lg font-semibold text-[var(--text-main)] mb-1" id="processing-text">Processing...</h3>
+                <p class="text-[13px] text-[var(--text-muted)]">This might take a moment.</p>
+            </div>
+        </div>
+    </div>
     <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         
         <!-- Sidebar Column -->
@@ -312,36 +391,10 @@
                 </button>
             </div>
             
-            <textarea id="editor" class="editor-textarea flex-1 w-full p-6 resize-none outline-none text-[13px] leading-relaxed text-[var(--editor-text)] bg-[var(--bg-panel)]" spellcheck="false" placeholder="Type your markdown here..."># Welcome to Markdown Studio :rocket:
-
-This is a real-time **markdown** preview environment with extended GFM support.
-
-## Task Lists
-Interactive task lists sync directly with the source:
-- [x] Integrate KaTeX for Math
-- [x] Configure marked-emoji
-- [ ] Write documentation
-
-## Mathematical Equations
-KaTeX renders mathematical formatting beautifully.
-
-**Inline math**: Euler's identity is $e^{i\pi} + 1 = 0$.
-
-**Block math**:
-
-$$
-f(x) = \int_{-\infty}^\infty\hat f(\xi)\,e^{2 \pi i \xi x}\,d\xi
-$$
-
-## Embedded Flowcharts
-```mermaid
-graph TD;
-    Upload[Upload Markdown] --> Edit[Live Edit];
-    Edit --> Render[Auto Render Preview];
-    Render --> Export[Export to PDF];
-    style Upload fill:#f9fafb,stroke:#d1d5db;
-    style Export fill:#4f46e5,stroke:#3730a3,color:#fff;
-```</textarea>
+            <div class="flex-1 flex overflow-hidden w-full relative">
+                <div id="line-numbers" class="w-12 min-w-[48px] text-right pr-3 py-6 text-[13px] font-mono leading-relaxed text-[var(--text-muted)] bg-[var(--bg-panel)] border-r border-[var(--border-main)] overflow-hidden select-none pointer-events-none opacity-60 whitespace-pre"></div>
+                <textarea id="editor" class="editor-textarea flex-1 w-full p-6 resize-none outline-none text-[13px] leading-relaxed text-[var(--editor-text)] bg-[var(--bg-panel)] overflow-y-auto whitespace-pre" wrap="off" spellcheck="false" placeholder="Type your markdown here..."></textarea>
+            </div>
         </div>
 
         <!-- Resizer -->
@@ -349,7 +402,7 @@ graph TD;
 
         <!-- Preview Column -->
         <div id="preview-column" class="flex-1 flex flex-col bg-[var(--bg-white)] min-h-[50%] md:min-h-0 relative z-0">
-            <div class="px-4 py-1.5 bg-[var(--bg-header)] border-b border-[var(--border-main)] flex justify-between items-center text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest shrink-0 relative z-10">
+            <div id="preview-header" class="px-4 py-1.5 bg-[var(--bg-header)] border-b border-[var(--border-main)] flex justify-between items-center text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest shrink-0 relative z-10">
                 <div class="flex items-center gap-2">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                     Live Preview
@@ -416,7 +469,16 @@ graph TD;
 
     <!-- Application Logic -->
     <script>
+        let Archive;
+        import('/libarchive/libarchive.js').then(module => {
+            Archive = module.Archive;
+            Archive.init({
+                workerUrl: '/libarchive/worker-bundle.js'
+            });
+        }).catch(err => console.error("Failed to load libarchive.js", err));
+
         document.addEventListener('DOMContentLoaded', () => {
+
             const editor = document.getElementById('editor');
             const preview = document.getElementById('preview');
             const fileUpload = document.getElementById('file-upload');
@@ -445,13 +507,159 @@ graph TD;
             let activeFilePath = null;
             let activeFileOriginalContent = null;
             let activeFileLastModified = null;
+            let activeFileType = 'markdown'; // 'markdown' or 'image'
+
+            function showProcessing(text = "Processing...") {
+                document.getElementById('processing-text').textContent = text;
+                const processingOverlay = document.getElementById('processing-overlay');
+                if (processingOverlay) {
+                    processingOverlay.classList.remove('hidden');
+                    setTimeout(() => processingOverlay.classList.remove('opacity-0'), 10);
+                }
+            }
+
+            function hideProcessing() {
+                const processingOverlay = document.getElementById('processing-overlay');
+                if (processingOverlay) {
+                    processingOverlay.classList.add('opacity-0');
+                    setTimeout(() => processingOverlay.classList.add('hidden'), 300);
+                }
+            }
+
+            const DEFAULT_WELCOME_MD = `# Welcome to Markdown Studio 🚀
+
+Markdown Studio is a powerful, local-first browser-based markdown editor. You are currently viewing the **Live Preview**.
+
+## 📂 Drag & Drop Anything
+Drop **Markdown files**, **Images**, **Folders**, or **.zip / .7z / .rar / .tar** archives directly onto this page. Markdown Studio will read them all locally without uploading anything to a server.
+
+## 📝 GitHub-Flavored Markdown (GFM)
+Standard features like tables, blockquotes, and task lists work perfectly.
+
+- [x] Write an awesome markdown editor
+- [x] Add offline support
+- [ ] Take over the world
+
+| Feature | Supported | Requires Server |
+| :--- | :---: | :---: |
+| Real-time Editing | ✅ | ❌ |
+| Folder Uploads | ✅ | ❌ |
+| Archive Extraction | ✅ | ❌ |
+| PDF Export | ✅ | ❌ |
+
+> "The best markdown experience is local-first."
+
+## 📊 Diagramming with Mermaid
+Describe flowcharts and diagrams naturally using text:
+
+\`\`\`mermaid
+graph TD;
+    A[Upload ZIP] --> B{Extract};
+    B -->|Success| C[View File Tree];
+    B -->|Fail| D[Show Error];
+\`\`\`
+
+## 🧮 Advanced Math with KaTeX
+Write inline math equations like $E = mc^2$ or block math:
+
+$$
+\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}
+$$
+
+## 💻 Code Blocks & Syntax Highlighting
+PrismJS powers vibrant, fast syntax highlighting.
+
+\`\`\`javascript
+async function parseMarkdown(text) {
+    const rawHtml = await marked.parse(text);
+    return DOMPurify.sanitize(rawHtml);
+}
+\`\`\`
+
+## 😌 Emojis
+Type GitHub-style emojis directly: :sparkles: :tada: :fire: :rocket:
+
+## 🛠️ Tools & Customization
+Take full control over your reading and editing experience:
+- **Fonts & Text Size**: Use the dropdown menus in the header to select your preferred typography (Inter, System, Serif, or Mono) and scale text size from Small to X-Large.
+- **Find in Preview**: Quickly search through your rendered document using the search bar (or \`Ctrl+F\` / \`Cmd+F\`). Matches are highlighted and easy to navigate.
+- **Focus Mode**: Click the **Focus** button at the top right to center your content, hide sidebars, and eliminate distractions for a clean and immersive reading/writing experience.
+
+---
+*Ready to start? Drop a file or type your own markdown on the left!*
+`;
+
+            function handleEmptyState() {
+                activeFilePath = 'Welcome.md';
+                activeFileOriginalContent = DEFAULT_WELCOME_MD;
+                activeFileType = 'markdown';
+                
+                downloadBtn.classList.remove('hidden');
+                downloadBtn.classList.add('flex');
+                reloadFileBtn.classList.add('hidden');
+                reloadFileBtn.classList.remove('flex');
+                
+                const editor = document.getElementById('editor');
+                editor.value = DEFAULT_WELCOME_MD;
+                editor.removeAttribute('disabled');
+                
+                document.getElementById('line-numbers').classList.remove('opacity-30');
+                
+                updateStats();
+                document.getElementById('editor-title').innerHTML = `
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    Welcome.md
+                `;
+                
+                renderContent();
+            }
+
+            function handleImageLoad(filePath, lastModified = null) {
+                activeFilePath = filePath;
+                activeFileType = 'image';
+                activeFileLastModified = lastModified;
+                localStorage.setItem('md-studio-last-active-path', activeFilePath);
+                
+                downloadBtn.classList.add('hidden');
+                downloadBtn.classList.remove('flex');
+                
+                const activeFileEntry = Array.from(currentFiles.values()).find(f => (f.customPath || f.webkitRelativePath || f.name) === activeFilePath);
+                if (activeFileEntry && activeFileEntry.fileHandle) {
+                    reloadFileBtn.classList.remove('hidden');
+                    reloadFileBtn.classList.add('flex');
+                } else {
+                    reloadFileBtn.classList.remove('flex');
+                    reloadFileBtn.classList.add('hidden');
+                }
+
+                // Hide editor features (word wrap, line numbers), set empty value
+                document.getElementById('editor').value = '';
+                document.getElementById('editor').setAttribute('disabled', 'true');
+                document.getElementById('line-numbers').textContent = '';
+                document.getElementById('line-numbers').classList.add('opacity-30');
+                
+                const imgUrl = currentImageUrls.get(filePath);
+                const preview = document.getElementById('preview');
+                preview.innerHTML = `<div class="flex items-center justify-center min-h-full"><img src="${imgUrl}" alt="${filePath}" class="max-w-full h-auto shadow-md rounded"></div>`;
+                
+                // Clear TOC
+                document.getElementById('toc-container').classList.add('hidden');
+                document.getElementById('toc-tree').innerHTML = '';
+                
+                updateStats(); // Will show 0 since editor is empty
+            }
 
             function handleFileLoad(content, filePath, lastModified = null) {
                 activeFilePath = filePath;
+                activeFileType = 'markdown';
                 activeFileOriginalContent = content;
                 activeFileLastModified = lastModified;
                 localStorage.setItem('md-studio-last-active-path', activeFilePath);
                 const stored = localStorage.getItem('md-studio-file-' + filePath);
+                
+                document.getElementById('editor').removeAttribute('disabled');
+                document.getElementById('line-numbers').classList.remove('opacity-30');
+
                 if (stored !== null && stored !== content) {
                     editor.value = stored;
                     downloadBtn.classList.remove('hidden');
@@ -472,6 +680,7 @@ graph TD;
                 }
                 
                 renderContent();
+                updateStats();
                 if(document.getElementById('preview-search')?.value) performSearch();
             }
 
@@ -481,12 +690,18 @@ graph TD;
                 if (activeFileEntry && activeFileEntry.fileHandle) {
                     try {
                         const newFile = await activeFileEntry.fileHandle.getFile();
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                            const newContent = event.target.result;
-                            handleFileLoad(newContent, activeFilePath, newFile.lastModified);
-                        };
-                        reader.readAsText(newFile);
+                        if (activeFileType === 'image') {
+                            URL.revokeObjectURL(currentImageUrls.get(activeFilePath));
+                            currentImageUrls.set(activeFilePath, URL.createObjectURL(newFile));
+                            handleImageLoad(activeFilePath, newFile.lastModified);
+                        } else {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                                const newContent = event.target.result;
+                                handleFileLoad(newContent, activeFilePath, newFile.lastModified);
+                            };
+                            reader.readAsText(newFile);
+                        }
                     } catch (err) {
                         console.error('Reload Error:', err);
                         alert("Could not load file from disk.");
@@ -602,29 +817,19 @@ graph TD;
 
             // Export to PDF
             exportPdfBtn.addEventListener('click', async () => {
-                const element = document.getElementById('preview');
-                const title = document.getElementById('editor-title').innerText || 'markdown-export';
+                // Update document title for correct PDF file name
+                const originalTitle = document.title;
                 const filename = (activeFilePath ? activeFilePath.split('/').pop().replace(/\.md$/, '') : 'document');
-                const opt = {
-                    margin:       [0.5, 0.5],
-                    filename:     `${filename}.pdf`,
-                    image:        { type: 'jpeg', quality: 0.98 },
-                    pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] },
-                    html2canvas:  { scale: 2, useCORS: true, logging: false },
-                    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-                };
+                document.title = filename;
                 
-                const originalPadding = element.style.padding;
-                const originalClasses = element.className;
-                element.classList.remove('p-6', 'md:p-12', 'min-h-full');
-                element.style.padding = '0';
+                // Trigger native browser print which uses the @media print CSS
+                // Native print handles large documents natively, supports selectable text, and smaller file sizes.
+                window.print();
                 
-                try {
-                    await html2pdf().set(opt).from(element).save();
-                } finally {
-                    element.className = originalClasses;
-                    element.style.padding = originalPadding;
-                }
+                // Restore document title
+                setTimeout(() => {
+                    document.title = originalTitle;
+                }, 100);
             });
 
             // Exit Focus Mode
@@ -670,6 +875,20 @@ graph TD;
                 charCountEl.textContent = charCount;
                 wordCountEl.textContent = wordCount;
                 readTimeEl.textContent = readTime;
+                
+                updateLineNumbers();
+            }
+
+            const lineNumbersEl = document.getElementById('line-numbers');
+            function updateLineNumbers() {
+                const linesCount = (editor.value.match(/\n/g) || []).length + 1;
+                const minLines = 1;
+                const totalLines = Math.max(linesCount, minLines);
+                let numbersStr = '';
+                for (let i = 1; i <= totalLines; i++) {
+                    numbersStr += i + '\n';
+                }
+                lineNumbersEl.textContent = numbersStr;
             }
 
             // Sync Stats on Input
@@ -756,7 +975,12 @@ graph TD;
             
             // Word wrap functionality
             const toggleWrapBtn = document.getElementById('toggle-wrap-btn');
-            let isWordWrap = true;
+            // By default, word wrap is OFF initially to align nicely with line numbers
+            let isWordWrap = false;
+            
+            // Set initial button state based on default
+            toggleWrapBtn.classList.remove('text-[var(--bg-btn)]', 'bg-[var(--bg-panel)]', 'shadow-sm');
+            toggleWrapBtn.classList.add('text-[var(--text-muted)]');
 
             toggleWrapBtn.addEventListener('click', () => {
                 isWordWrap = !isWordWrap;
@@ -886,11 +1110,21 @@ graph TD;
                         const t = typeof hrefObj === 'object' ? hrefObj.title : title;
                         const alt = typeof hrefObj === 'object' ? hrefObj.text : text;
                         let resolvedHref = href;
+                        let isMissing = false;
                         if (activeFilePath && href && !/^(https?|data):/i.test(href)) {
                             const absPath = resolveRelativePath(activeFilePath, href);
                             if (currentImageUrls.has(absPath)) {
                                 resolvedHref = currentImageUrls.get(absPath);
+                            } else {
+                                isMissing = true;
                             }
+                        }
+                        if (isMissing) {
+                            return `<div class="flex flex-col items-center justify-center p-8 border-2 border-dashed border-[var(--border-main)] rounded bg-[var(--bg-panel)] text-[var(--text-muted)] my-4">
+                                <svg class="w-8 h-8 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                <span class="text-sm font-medium">Image Not Found</span>
+                                <span class="text-xs font-mono mt-1 opacity-70">${href}</span>
+                            </div>`;
                         }
                         return `<img src="${resolvedHref}" alt="${alt || ''}" title="${t || ''}" class="max-w-full h-auto rounded shadow-sm">`;
                     }
@@ -1106,6 +1340,8 @@ graph TD;
             let isSyncingRight = false;
             
             editor.addEventListener('scroll', function() {
+                lineNumbersEl.scrollTop = this.scrollTop;
+                
                 if(!isSyncingLeft) {
                     isSyncingRight = true;
                     // Map scroll percentages rather than absolute pixels to account for height difference
@@ -1135,53 +1371,55 @@ graph TD;
             // 4. File Drag, Drop & Upload Handling
             editor.addEventListener('input', debounceRender);
 
-            fileUpload.addEventListener('change', (e) => {
+            async function extractArchiveFiles(file, overridePath = '') {
+                const extractedFiles = [];
+                try {
+                    if (!Archive) {
+                        throw new Error("Archive library is not loaded yet. Please wait a moment and try again.");
+                    }
+                    const archive = await Archive.open(file);
+                    const filesObj = await archive.extractFiles();
+                    
+                    const archiveBasePath = overridePath + file.name.replace(/\.(zip|7z|rar|tar|bz2|gz)$/i, '') + '/';
+
+                    async function traverse(obj, currentPath) {
+                        for (const [key, val] of Object.entries(obj)) {
+                            if (val instanceof File || (val && typeof val === 'object' && typeof val.name === 'string' && typeof val.size === 'number')) {
+                                if (key.match(/\.(md|txt|markdown|png|jpe?g|gif|svg|webp)$/i)) {
+                                    if (currentPath.includes('__MACOSX') || currentPath.split('/').some(p => p.startsWith('.') && p !== '.' && p !== '..')) continue;
+                                    val.customPath = currentPath + key;
+                                    extractedFiles.push(val);
+                                }
+                            } else if (typeof val === 'object' && val !== null) {
+                                await traverse(val, currentPath + key + '/');
+                            }
+                        }
+                    }
+
+                    await traverse(filesObj, archiveBasePath);
+                } catch (e) {
+                    console.error("Failed to extract archive", e);
+                    alert("Failed to extract archive: " + e.message);
+                }
+                return extractedFiles;
+            }
+
+            fileUpload.addEventListener('change', async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
 
-                sidebarColumn.classList.remove('hidden');
-                fileTree.innerHTML = '';
-                currentFiles.clear();
-
-                const id = 'file-0';
-                currentFiles.set(id, file);
-
-                const li = document.createElement('li');
-                const fileDiv = document.createElement('div');
-                fileDiv.className = 'px-2 py-1.5 rounded text-[11px] font-medium text-[var(--text-muted)] flex items-center gap-1.5 hover:bg-[#D1D8C5] cursor-pointer transition-colors truncate file-item ml-1';
-                fileDiv.title = file.name;
-                fileDiv.dataset.id = id;
-                fileDiv.innerHTML = `
-                    <svg class="opacity-60 shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    <span class="truncate">${file.name}</span>
-                `;
-                
-                fileDiv.addEventListener('click', () => {
-                    document.querySelectorAll('.file-item').forEach(el => {
-                        el.classList.remove('bg-[var(--bg-app)]', 'text-[var(--bg-btn)]');
-                        el.classList.add('text-[var(--text-muted)]');
-                    });
-                    fileDiv.classList.add('bg-[var(--bg-app)]', 'text-[var(--bg-btn)]');
-                    fileDiv.classList.remove('text-[var(--text-muted)]');
-                    
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        handleFileLoad(event.target.result, file.webkitRelativePath || file.name, file.lastModified);
-                    };
-                    reader.readAsText(file);
-                    
-                    const mdHeader = document.getElementById('editor-title');
-                    if (mdHeader) {
-                        mdHeader.innerHTML = `
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                            <span class="hidden sm:inline">Markdown</span> Editor <span class="ml-1 sm:ml-2 font-normal lowercase tracking-normal text-gray-400">(${file.name})</span>
-                        `;
+                showProcessing(`Extracting ${file.name}...`);
+                if (file.name.match(/\.(zip|7z|rar|tar|bz2|gz)$/i)) {
+                    const files = await extractArchiveFiles(file);
+                    if (files.length > 0) {
+                        processFilesArray(files, true);
+                    } else {
+                        alert("No valid files found inside the archive.");
                     }
-                });
-                
-                li.appendChild(fileDiv);
-                fileTree.appendChild(li);
-                fileDiv.click();
+                } else {
+                    processFilesArray([file], true);
+                }
+                hideProcessing();
 
                 fileUpload.value = ''; // Reset
             });
@@ -1194,58 +1432,119 @@ graph TD;
                 }, false);
             });
 
-            document.body.addEventListener('drop', (e) => {
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    const file = files[0];
-                    if (file.name.match(/\.(md|txt|markdown)$/i)) {
-                        sidebarColumn.classList.remove('hidden');
-                        fileTree.innerHTML = '';
-                        currentFiles.clear();
+            const dropOverlay = document.getElementById('drop-overlay');
+            let dragCounter = 0;
 
-                        const id = 'file-0';
-                        currentFiles.set(id, file);
+            function validateDragDrop(e) {
+                const dropBox = dropOverlay.querySelector('div');
+                const title = dropBox.querySelector('h3');
+                const items = e.dataTransfer.items;
+                let hasValid = false;
+                let hasInvalid = false;
 
-                        const li = document.createElement('li');
-                        const fileDiv = document.createElement('div');
-                        fileDiv.className = 'px-2 py-1.5 rounded text-[11px] font-medium text-[var(--text-muted)] flex items-center gap-1.5 hover:bg-[#D1D8C5] cursor-pointer transition-colors truncate file-item ml-1';
-                        fileDiv.title = file.name;
-                        fileDiv.dataset.id = id;
-                        fileDiv.innerHTML = `
-                            <svg class="opacity-60 shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                            <span class="truncate">${file.name}</span>
-                        `;
-                        
-                        fileDiv.addEventListener('click', () => {
-                            document.querySelectorAll('.file-item').forEach(el => {
-                                el.classList.remove('bg-[var(--bg-app)]', 'text-[var(--bg-btn)]');
-                                el.classList.add('text-[var(--text-muted)]');
-                            });
-                            fileDiv.classList.add('bg-[var(--bg-app)]', 'text-[var(--bg-btn)]');
-                            fileDiv.classList.remove('text-[var(--text-muted)]');
-                            
-                            const reader = new FileReader();
-                            reader.onload = (event) => {
-                                handleFileLoad(event.target.result, file.webkitRelativePath || file.name, file.lastModified);
-                            };
-                            reader.readAsText(file);
-                            
-                            const mdHeader = document.getElementById('editor-title');
-                            if (mdHeader) {
-                                mdHeader.innerHTML = `
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                                    <span class="hidden sm:inline">Markdown</span> Editor <span class="ml-1 sm:ml-2 font-normal lowercase tracking-normal text-gray-400">(${file.name})</span>
-                                `;
-                            }
-                        });
-                        
-                        li.appendChild(fileDiv);
-                        fileTree.appendChild(li);
-                        fileDiv.click();
-                    } else {
-                        alert('Please drop a valid Markdown (.md) or text file.');
+                if (items && items.length > 0) {
+                    for (let i = 0; i < items.length; i++) {
+                        const item = items[i];
+                        if (item.kind === 'file') {
+                            hasValid = true;
+                        } else {
+                            hasInvalid = true;
+                        }
                     }
                 }
+
+                if (hasInvalid && !hasValid) {
+                    dropBox.classList.add('ring-2', 'ring-red-500', 'bg-red-50');
+                    title.textContent = 'Unsupported file type';
+                    title.classList.add('text-red-600');
+                    title.classList.remove('text-[var(--text-main)]');
+                } else {
+                    dropBox.classList.remove('ring-2', 'ring-red-500', 'bg-red-50');
+                    title.textContent = 'Drop files or folders here';
+                    title.classList.remove('text-red-600');
+                    title.classList.add('text-[var(--text-main)]');
+                }
+            }
+
+            document.body.addEventListener('dragenter', (e) => {
+                dragCounter++;
+                if (dragCounter === 1) {
+                    validateDragDrop(e);
+                    dropOverlay.classList.remove('hidden');
+                    setTimeout(() => dropOverlay.classList.remove('opacity-0'), 10);
+                }
+            }, false);
+
+            document.body.addEventListener('dragover', (e) => {
+                validateDragDrop(e);
+            }, false);
+
+            document.body.addEventListener('dragleave', (e) => {
+                dragCounter--;
+                if (dragCounter === 0) {
+                    dropOverlay.classList.add('opacity-0');
+                    setTimeout(() => dropOverlay.classList.add('hidden'), 300);
+                }
+            }, false);
+
+            document.body.addEventListener('drop', async (e) => {
+                dragCounter = 0;
+                dropOverlay.classList.add('opacity-0');
+                setTimeout(() => dropOverlay.classList.add('hidden'), 300);
+
+                const items = e.dataTransfer.items;
+                if (!items || items.length === 0) return;
+
+                showProcessing("Processing dropped files...");
+                const fileEntries = [];
+                const entries = [];
+                
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    if (item.kind === 'file') {
+                        const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : (item.getAsEntry ? item.getAsEntry() : null);
+                        if (entry) entries.push(entry);
+                    }
+                }
+                
+                if (entries.length === 0) return;
+
+                async function traverse(entry, path) {
+                    if (entry.isFile) {
+                        const file = await new Promise((resolve) => entry.file(resolve));
+                        if (file.name.match(/\.(zip|7z|rar|tar|bz2|gz)$/i)) {
+                            const extracted = await extractArchiveFiles(file, path);
+                            fileEntries.push(...extracted);
+                        } else {
+                            file.customPath = path + entry.name;
+                            if (file.name.match(/\.(md|txt|markdown|png|jpe?g|gif|svg|webp)$/i)) {
+                                fileEntries.push(file);
+                            }
+                        }
+                    } else if (entry.isDirectory) {
+                        const dirReader = entry.createReader();
+                        let allEntries = [];
+                        let batch = await new Promise(resolve => dirReader.readEntries(resolve));
+                        while (batch.length > 0) {
+                            allEntries.push(...batch);
+                            batch = await new Promise(resolve => dirReader.readEntries(resolve));
+                        }
+                        for (let i = 0; i < allEntries.length; i++) {
+                            await traverse(allEntries[i], path + entry.name + '/');
+                        }
+                    }
+                }
+
+                for (let i = 0; i < entries.length; i++) {
+                    await traverse(entries[i], '');
+                }
+
+                if (fileEntries.length > 0) {
+                    processFilesArray(fileEntries, true);
+                } else {
+                    alert('No supported files (.md, .txt, images) found in the dropped items. If you dropped a .zip, ensure it contains valid files.');
+                }
+                hideProcessing();
             }, false);
 
             // Folder Upload & Watch Logic
@@ -1324,23 +1623,44 @@ graph TD;
                 }
             });
 
-            folderUpload.addEventListener('change', (e) => {
-                const files = e.target.files;
-                if (!files || files.length === 0) return;
-                processFilesArray(Array.from(files), true);
+            folderUpload.addEventListener('change', async (e) => {
+                const files = Array.from(e.target.files);
+                if (files.length === 0) return;
+                
+                showProcessing("Processing folder upload...");
+                const finalFiles = [];
+                for (const file of files) {
+                    if (file.name.match(/\.(zip|7z|rar|tar|bz2|gz)$/i)) {
+                        // Extract relative path from webkitRelativePath for correct zip placement
+                        const basePath = file.webkitRelativePath ? file.webkitRelativePath.split('/').slice(0, -1).join('/') + '/' : '';
+                        const extracted = await extractArchiveFiles(file, basePath);
+                        finalFiles.push(...extracted);
+                    } else {
+                        finalFiles.push(file);
+                    }
+                }
+                
+                processFilesArray(finalFiles, true);
+                hideProcessing();
                 e.target.value = '';
             });
 
             async function processDirectoryHandle(handle, isInit = true) {
+                showProcessing("Loading folder...");
                 const files = [];
                 async function traverse(currentHandle, path) {
                     for await (const entry of currentHandle.values()) {
-                        if (entry.kind === 'file' && entry.name.match(/\.(md|txt|markdown|png|jpe?g|gif|svg|webp)$/i)) {
+                        if (entry.kind === 'file' && entry.name.match(/\.(md|txt|markdown|png|jpe?g|gif|svg|webp|zip|7z|rar|tar|bz2|gz)$/i)) {
                             const fileData = await entry.getFile();
-                            // Use a custom path since webkitRelativePath is read-only
-                            fileData.customPath = path + entry.name;
-                            fileData.fileHandle = entry;
-                            files.push(fileData);
+                            if (entry.name.match(/\.(zip|7z|rar|tar|bz2|gz)$/i)) {
+                                const extracted = await extractArchiveFiles(fileData, path);
+                                files.push(...extracted);
+                            } else {
+                                // Use a custom path since webkitRelativePath is read-only
+                                fileData.customPath = path + entry.name;
+                                fileData.fileHandle = entry;
+                                files.push(fileData);
+                            }
                         } else if (entry.kind === 'directory') {
                             await traverse(entry, path + entry.name + '/');
                         }
@@ -1348,6 +1668,7 @@ graph TD;
                 }
                 await traverse(handle, handle.name + '/');
                 processFilesArray(files, isInit);
+                hideProcessing();
             }
 
             function processFilesArray(filesArr, isInit = false) {
@@ -1361,29 +1682,31 @@ graph TD;
                 currentImageUrls.forEach(url => URL.revokeObjectURL(url));
                 currentImageUrls.clear();
 
-                const mdFiles = [];
+                const displayFiles = [];
                 filesArr.forEach(file => {
                     const path = file.customPath || file.webkitRelativePath || file.name;
                     if (path.match(/\.(md|txt|markdown)$/i)) {
-                        mdFiles.push(file);
+                        displayFiles.push({ type: 'markdown', file });
                     } else if (path.match(/\.(png|jpe?g|gif|svg|webp)$/i)) {
                         currentImageUrls.set(path, URL.createObjectURL(file));
+                        displayFiles.push({ type: 'image', file });
                     }
                 });
 
-                mdFiles.sort((a, b) => {
-                    const pathA = a.customPath || a.webkitRelativePath || a.name;
-                    const pathB = b.customPath || b.webkitRelativePath || b.name;
+                displayFiles.sort((a, b) => {
+                    const pathA = a.file.customPath || a.file.webkitRelativePath || a.file.name;
+                    const pathB = b.file.customPath || b.file.webkitRelativePath || b.file.name;
                     return pathA.localeCompare(pathB);
                 });
 
-                if (mdFiles.length === 0) {
-                    fileTree.innerHTML = '<li class="px-3 py-2 rounded text-[11px] font-medium text-[var(--text-muted)] italic text-center mt-4">No markdown files found in folder.</li>';
+                if (displayFiles.length === 0) {
+                    fileTree.innerHTML = '<li class="px-3 py-2 rounded text-[11px] font-medium text-[var(--text-muted)] italic text-center mt-4">No compatible files found in folder.</li>';
                     return;
                 }
 
                 const tree = {};
-                mdFiles.forEach((file, index) => {
+                displayFiles.forEach((fObj, index) => {
+                    const file = fObj.file;
                     const fullPath = file.customPath || file.webkitRelativePath || file.name;
                     const parts = fullPath.split('/');
                     let current = tree;
@@ -1394,6 +1717,7 @@ graph TD;
                                 isFile: i === parts.length - 1,
                                 children: {},
                                 file: i === parts.length - 1 ? file : null,
+                                type: i === parts.length - 1 ? fObj.type : 'folder',
                                 index: i === parts.length - 1 ? index : null,
                                 path: parts.slice(0, i + 1).join('/')
                             };
@@ -1446,7 +1770,7 @@ graph TD;
                     }
                 }
 
-                if (isFirstLoad && mdFiles.length > 0) {
+                if (isFirstLoad && displayFiles.length > 0) {
                     const savedActivePath = localStorage.getItem('md-studio-last-active-path');
                     let targetFile = null;
                     if (savedActivePath) {
@@ -1456,8 +1780,14 @@ graph TD;
                     if (!targetFile) {
                         targetFile = fileTree.querySelector('.file-item');
                     }
-                    if (targetFile) targetFile.click();
+                    if (targetFile) {
+                        targetFile.click();
+                    } else {
+                        handleEmptyState();
+                    }
                     isFirstLoad = false;
+                } else if (!activeFilePath) {
+                    handleEmptyState();
                 }
                 
                 // Force a render in case images updated but the active markdown file itself didn't change
@@ -1492,8 +1822,13 @@ graph TD;
                         fileDiv.title = fPath;
                         fileDiv.dataset.id = id;
                         fileDiv.dataset.path = fPath;
+                        
+                        const iconHtml = n.type === 'image' 
+                            ? `<svg class="opacity-60 shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`
+                            : `<svg class="opacity-60 shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+
                         fileDiv.innerHTML = `
-                            <svg class="opacity-60 shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            ${iconHtml}
                             <span class="truncate">${n.name}</span>
                         `;
                         
@@ -1511,11 +1846,15 @@ graph TD;
                                     if (actualFile.fileHandle) {
                                         actualFile = await actualFile.fileHandle.getFile();
                                     }
-                                    const reader = new FileReader();
-                                    reader.onload = (event) => {
-                                        handleFileLoad(event.target.result, fPath, actualFile.lastModified);
-                                    };
-                                    reader.readAsText(actualFile);
+                                    if (n.type === 'image') {
+                                        handleImageLoad(fPath, actualFile.lastModified);
+                                    } else {
+                                        const reader = new FileReader();
+                                        reader.onload = (event) => {
+                                            handleFileLoad(event.target.result, fPath, actualFile.lastModified);
+                                        };
+                                        reader.readAsText(actualFile);
+                                    }
                                 } catch (err) {
                                     console.error('Click to read failed:', err);
                                     alert('Failed to read file from disk: ' + err.message);
@@ -1527,7 +1866,7 @@ graph TD;
                             if (mdHeader) {
                                 mdHeader.innerHTML = `
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                                    <span class="hidden sm:inline">Markdown</span> Editor <span class="ml-1 sm:ml-2 font-normal lowercase tracking-normal text-gray-400">(${n.name})</span>
+                                    <span class="hidden sm:inline">${n.type === 'image' ? 'Image' : 'Markdown'}</span> Viewer <span class="ml-1 sm:ml-2 font-normal lowercase tracking-normal text-gray-400">(${n.name})</span>
                                 `;
                             }
                         });
@@ -1725,6 +2064,8 @@ graph TD;
             // Initial auto-render for placeholder content
             if (editor.value) {
                 renderContent();
+            } else {
+                handleEmptyState();
             }
             updateStats();
         });
